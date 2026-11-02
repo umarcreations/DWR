@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>দৈনিক ঘন্টা ভিত্তিক কাজের বিবরণ - SM40</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Bengali Font (Hind Siliguri) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        emerald: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Hind Siliguri', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #f0fdf4;
+        }
+
+        /* Printable CSS Styling */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+                padding: 0 !important;
+            }
+            .print-container {
+                box-shadow: none !important;
+                border: 1px solid #059669 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+            input, select, textarea {
+                border: none !important;
+                background: transparent !important;
+                appearance: none !important;
+                -webkit-appearance: none !important;
+                padding: 0 !important;
+                font-weight: 600 !important;
+            }
+            table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+            th, td {
+                border: 1px solid #059669 !important;
+                padding: 4px 6px !important;
+                font-size: 10pt !important;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-emerald-50/50 text-slate-800 min-h-screen py-3 sm:py-6 px-2 sm:px-4">
+
+    <!-- Top Action Bar / Controls (No Print) -->
+    <div class="max-w-5xl mx-auto mb-4 bg-white p-3.5 sm:p-4 rounded-2xl shadow-sm border border-emerald-200 flex flex-wrap justify-between items-center gap-3 no-print">
+        <!-- Search Slip -->
+        <div class="flex items-center gap-2 w-full md:w-auto flex-1 min-w-[260px]">
+            <div class="relative w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-emerald-600"></i>
+                <input type="text" id="searchInput" placeholder="স্লিপ আইডি বা তারিখ দিয়ে খুঁজুন..." class="w-full pl-9 pr-20 py-2 border border-emerald-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-emerald-50/30">
+                <button onclick="searchReport()" class="absolute right-1 top-1/2 -translate-y-1/2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1.5 rounded-lg transition-all font-medium">
+                    খুঁজুন
+                </button>
+            </div>
+        </div>
+        <!-- Actions -->
+        <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="createNewSlip()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-file-circle-plus"></i> নতুন স্লিপ
+            </button>
+            <button onclick="clearForm(true)" class="bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate-left"></i> রসেট / খালি করুন
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Printable Area -->
+    <div id="exportArea" class="max-w-5xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-200 print-container">
+        
+        <!-- Header Section -->
+        <div class="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-800 text-white p-4 sm:p-5 relative">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-2">
+                <h1 class="text-xl sm:text-2xl font-bold text-center sm:text-left tracking-wide text-white drop-shadow-sm">
+                    দৈনিক ঘন্টা ভিত্তিক কাজের বিবরণ
+                </h1>
+                <div class="inline-flex items-center gap-2 bg-emerald-900/70 backdrop-blur px-3 py-1 rounded-full text-xs font-semibold text-emerald-100 border border-emerald-400/30">
+                    <i class="fa-solid fa-barcode text-emerald-300"></i> স্লিপ আইডি: <span id="slipIdDisplay" class="font-mono text-emerald-200">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amil Form Inputs (Fresh & Clean) -->
+        <div class="p-4 sm:p-5 bg-emerald-50/60 border-b border-emerald-200 space-y-3">
+            
+            <!-- Row 1: Name, Profile ID, Date, Permanent/Temporary Radio -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+                <!-- Amil Name -->
+                <div class="lg:col-span-4 bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+                    <label class="text-[11px] font-bold text-emerald-800 block uppercase tracking-wider mb-0.5">
+                        <i class="fa-solid fa-user text-emerald-600 mr-1"></i>আমিল নাম
+                    </label>
+                    <input type="text" id="amilName" oninput="autoSaveData()" placeholder="আমিলের নাম লিখুন..." class="w-full font-semibold text-slate-800 text-sm focus:outline-none border-b border-transparent focus:border-emerald-500 py-0.5">
+                </div>
+
+                <!-- Profile ID -->
+                <div class="lg:col-span-3 bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+                    <label class="text-[11px] font-bold text-emerald-800 block uppercase tracking-wider mb-0.5">
+                        <i class="fa-solid fa-id-card text-emerald-600 mr-1"></i>প্রোফাইল আইডি
+                    </label>
+                    <input type="text" id="profileId" oninput="autoSaveData()" placeholder="আইডি লিখুন..." class="w-full font-semibold text-slate-800 text-sm focus:outline-none border-b border-transparent focus:border-emerald-500 py-0.5">
+                </div>
+
+                <!-- Date -->
+                <div class="lg:col-span-3 bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+                    <label class="text-[11px] font-bold text-emerald-800 block uppercase tracking-wider mb-0.5">
+                        <i class="fa-solid fa-calendar-day text-emerald-600 mr-1"></i>তারিখ
+                    </label>
+                    <input type="date" id="dutyDate" onchange="autoSaveData()" class="w-full font-semibold text-slate-800 text-sm focus:outline-none border-b border-transparent focus:border-emerald-500 py-0.5 bg-transparent">
+                </div>
+
+                <!-- Employment Type (Dynamic Radio Checkmarks) -->
+                <div class="lg:col-span-2 bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm">
+                    <label class="text-[11px] font-bold text-emerald-800 block uppercase tracking-wider mb-1">
+                        <i class="fa-solid fa-user-tag text-emerald-600 mr-1"></i>ধরণ
+                    </label>
+                    <div class="flex items-center gap-3 text-xs font-semibold text-slate-700">
+                        <label class="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="dutyStatusType" value="স্থায়ী" onchange="autoSaveData()" class="accent-emerald-600 w-3.5 h-3.5">
+                            <span>স্থায়ী</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1 cursor-pointer">
+                            <input type="radio" name="dutyStatusType" value="অস্থায়ী" onchange="autoSaveData()" class="accent-emerald-600 w-3.5 h-3.5">
+                            <span>অস্থায়ী</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Section Input (Under Name) -->
+            <div class="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm flex items-center gap-2">
+                <label class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider whitespace-nowrap">
+                    <i class="fa-solid fa-sitemap text-emerald-600 mr-1"></i>সেকশন / বিভাগ:
+                </label>
+                <input type="text" id="sectionName" oninput="autoSaveData()" placeholder="যেমন: অনলাইন সুন্নত প্রচার, মিডিয়া, সাপোর্ট ইত্যাদি..." class="w-full font-medium text-slate-800 text-sm focus:outline-none py-0.5">
+            </div>
+
+        </div>
+
+        <!-- Work Log Table -->
+        <div class="overflow-x-auto p-2 sm:p-4">
+            <table class="w-full border-collapse text-left text-xs sm:text-sm min-w-[650px]">
+                <thead>
+                    <tr class="bg-emerald-700 text-white font-bold border-b border-emerald-800">
+                        <th class="p-2 border border-emerald-600 text-center w-24">ওয়াক্ত</th>
+                        <th class="p-2 border border-emerald-600 text-center w-28">সময় শুরু</th>
+                        <th class="p-2 border border-emerald-600 text-center w-28">সময় শেষ</th>
+                        <th class="p-2 border border-emerald-600 text-center w-32 bg-emerald-800 text-emerald-100">ডিউটি সংক্রান্ত সময়</th>
+                        <th class="p-2 border border-emerald-600 text-center w-28 bg-teal-800 text-teal-100">অন্যান্য সময় (মি.)</th>
+                        <th class="p-2 border border-emerald-600 text-center">নিয়মিত কাজ / বিবরণ</th>
+                        <th class="p-2 border border-emerald-600 text-center w-14 no-print">একশন</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody" class="divide-y divide-emerald-100">
+                    <!-- Dynamic Rows -->
+                </tbody>
+                <tfoot>
+                    <tr class="bg-emerald-100/80 font-bold text-emerald-950 border-t-2 border-emerald-600">
+                        <td colspan="3" class="p-2 border border-emerald-300 text-right pr-4 text-xs sm:text-sm font-bold">মোট সময় =</td>
+                        <td class="p-2 border border-emerald-300 text-center text-emerald-900 bg-emerald-200/60 font-bold" id="totalDutyCell">০ মিনিট</td>
+                        <td class="p-2 border border-emerald-300 text-center text-teal-900 bg-teal-200/60 font-bold" id="totalOtherCell">০ মিনিট</td>
+                        <td colspan="2" class="p-2 border border-emerald-300 text-xs text-slate-500 font-normal">
+                            * সময় প্রদান করা মাত্র স্বয়ংক্রিয়ভাবে হিসাব সম্পন্ন হয়।
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Summary & Progress Status -->
+        <div class="p-4 sm:p-5 bg-emerald-50/50 border-t border-emerald-200">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div class="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-500 block">মোট উপস্থিত কর্মঘণ্টা</span>
+                        <span class="text-sm sm:text-base font-bold text-slate-800">১২:০০ ঘণ্টা</span>
+                    </div>
+                    <div class="text-emerald-600 bg-emerald-50 p-2 rounded-lg"><i class="fa-solid fa-clock text-lg"></i></div>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-semibold text-emerald-700 block">ডিউটি সংক্রান্ত সময়</span>
+                        <span class="text-sm sm:text-base font-bold text-emerald-800" id="dutySummary">০ মিনিট</span>
+                    </div>
+                    <div class="text-emerald-600 bg-emerald-50 p-2 rounded-lg"><i class="fa-solid fa-briefcase text-lg"></i></div>
+                </div>
+
+                <div class="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-[11px] font-semibold text-teal-700 block">অন্যান্য সময়</span>
+                        <span class="text-sm sm:text-base font-bold text-teal-800" id="otherSummary">০ মিনিট</span>
+                    </div>
+                    <div class="text-teal-600 bg-teal-50 p-2 rounded-lg"><i class="fa-solid fa-mug-hot text-lg"></i></div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-bold text-emerald-900">ডিউটির অগ্রগতি (১২ ঘণ্টা ট্র্যাকার)</span>
+                    <span class="text-xs font-bold text-emerald-700" id="progressPercentage">০% সম্পন্ন</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-emerald-100">
+                    <div id="progressBar" class="bg-gradient-to-r from-emerald-500 to-teal-600 h-3 rounded-full transition-all duration-500" style="width: 0%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Courtesy Section -->
+        <div class="p-3 bg-gradient-to-r from-emerald-900 to-teal-900 text-emerald-100 text-center text-xs font-medium border-t border-emerald-800">
+            সৌজন্যে : আন্তর্জাতিক সুন্নত প্রচার কেন্দ্র এবং ছিরাতুল মুস্তাক্বীম - <a href="https://sm40.com" target="_blank" class="underline hover:text-white font-semibold">SM40.COM</a>
+        </div>
+
+    </div>
+
+    <!-- Bottom Download / Export Options (No Print) -->
+    <div class="max-w-5xl mx-auto mt-5 bg-white p-4 rounded-2xl shadow-sm border border-emerald-200 flex flex-wrap justify-between items-center gap-3 no-print">
+        <span class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+            <i class="fa-solid fa-download text-emerald-600"></i> রিপোর্ট ডাউনলোড করুন:
+        </span>
+        
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="downloadJPG()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <i class="fa-regular fa-file-image"></i> JPG ইমেজ
+            </button>
+            <button onclick="downloadExcel()" class="bg-teal-700 hover:bg-teal-800 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <i class="fa-regular fa-file-excel"></i> Excel ফাইল
+            </button>
+            <button onclick="downloadPDF()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-semibold px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5">
+                <i class="fa-regular fa-file-pdf"></i> PDF / প্রিন্ট
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlipId = "";
+        let tableRows = [];
+
+        // Bengali Numeral Converter
+        function toBengaliNum(num) {
+            if (num === null || num === undefined) return '০';
+            const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+            return num.toString().replace(/\d/g, x => bengaliDigits[x]);
+        }
+
+        // Generate Slip ID (e.g., SM40-20261029-4821)
+        function generateSlipId() {
+            const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+            const random = Math.floor(1000 + Math.random() * 9000);
+            return `SM40-${dateStr}-${random}`;
+        }
+
+        // Window Load Initialization
+        window.onload = function() {
+            // Try loading existing active draft from LocalStorage
+            const activeDraft = localStorage.getItem('sm40_active_duty_draft');
+            if (activeDraft) {
+                try {
+                    const data = JSON.parse(activeDraft);
+                    loadDataIntoForm(data);
+                } catch (e) {
+                    createNewSlip();
+                }
+            } else {
+                createNewSlip();
+            }
+        };
+
+        // Create Fresh New Slip
+        function createNewSlip() {
+            currentSlipId = generateSlipId();
+            document.getElementById('slipIdDisplay').innerText = currentSlipId;
+            document.getElementById('dutyDate').valueAsDate = new Date();
+            
+            // Clean inputs
+            document.getElementById('amilName').value = '';
+            document.getElementById('profileId').value = '';
+            document.getElementById('sectionName').value = '';
+            
+            const radios = document.getElementsByName('dutyStatusType');
+            radios.forEach(r => r.checked = false);
+
+            // Create initial 4 empty rows
+            tableRows = [
+                { waqt: "", startTime: "", endTime: "", otherMins: "", text: "" },
+                { waqt: "", startTime: "", endTime: "", otherMins: "", text: "" },
+                { waqt: "", startTime: "", endTime: "", otherMins: "", text: "" },
+                { waqt: "", startTime: "", endTime: "", otherMins: "", text: "" }
+            ];
+
+            renderTable();
+            autoSaveData();
+        }
+
+        // Clear Form Button Action
+        function clearForm(confirmUser = false) {
+            if (confirmUser) {
+                if (!confirm("আপনি কি নতুন করে ফর্ম খালি করতে চান?")) return;
+            }
+            createNewSlip();
+        }
+
+        // Render Table Rows
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            tableRows.forEach((row, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-emerald-50/60 transition-colors text-slate-800 border-b border-emerald-100";
+
+                const dutyMinutes = calculateRowDutyMinutes(row.startTime, row.endTime);
+                const dutyFormatted = formatMinutesToText(dutyMinutes);
+
+                tr.innerHTML = `
+                    <td class="p-1 border border-emerald-200">
+                        <input type="text" value="${row.waqt || ''}" oninput="tableRows[${idx}].waqt=this.value; autoSaveData();" placeholder="ওয়াক্ত" class="w-full bg-transparent text-center focus:outline-none font-medium px-1">
+                    </td>
+                    
+                    <!-- Time Start -->
+                    <td class="p-1 border border-emerald-200 text-center">
+                        <input type="time" value="${row.startTime || ''}" onchange="updateRowStartTime(${idx}, this.value)" class="w-full bg-transparent text-center focus:outline-none font-semibold text-xs text-emerald-900 cursor-pointer">
+                    </td>
+
+                    <!-- Time End -->
+                    <td class="p-1 border border-emerald-200 text-center">
+                        <input type="time" value="${row.endTime || ''}" onchange="updateRowEndTime(${idx}, this.value)" class="w-full bg-transparent text-center focus:outline-none font-semibold text-xs text-emerald-900 cursor-pointer">
+                    </td>
+
+                    <!-- Calculated Duty Duration -->
+                    <td class="p-1 border border-emerald-200 text-center bg-emerald-50/50 font-bold text-xs text-emerald-900">
+                        ${dutyFormatted}
+                    </td>
+
+                    <!-- Other Time (Mins) -->
+                    <td class="p-1 border border-emerald-200 text-center">
+                        <input type="number" min="0" value="${row.otherMins || ''}" oninput="tableRows[${idx}].otherMins=this.value; calculateAll(); autoSaveData();" placeholder="০" class="w-full bg-transparent text-center focus:outline-none font-semibold text-xs text-teal-900">
+                    </td>
+
+                    <!-- Work Details -->
+                    <td class="p-1 border border-emerald-200">
+                        <input type="text" value="${row.text || ''}" oninput="tableRows[${idx}].text=this.value; autoSaveData();" placeholder="কাজের বিবরণ লিখুন..." class="w-full bg-transparent focus:outline-none px-1.5 text-xs sm:text-sm">
+                    </td>
+
+                    <!-- Action Buttons (+ / -) -->
+                    <td class="p-1 border border-emerald-200 text-center no-print">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="addRowAfter(${idx})" class="w-6 h-6 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center shadow-sm" title="নতুন সারী যোগ করুন (+)">
+                                +
+                            </button>
+                            <button onclick="deleteRow(${idx})" class="w-6 h-6 rounded bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center justify-center shadow-sm" title="মুছে ফেলুন (-)">
+                                -
+                            </button>
+                        </div>
+                    </td>
+                `;
+
+                tbody.appendChild(tr);
+            });
+
+            calculateAll();
+        }
+
+        // Handle Row Start Time Manual Input
+        function updateRowStartTime(idx, val) {
+            tableRows[idx].startTime = val;
+            renderTable();
+            autoSaveData();
+        }
+
+        // Handle Row End Time Input + Auto Carry-Forward
+        function updateRowEndTime(idx, val) {
+            tableRows[idx].endTime = val;
+            
+            // Carry forward to next row if present and next start time is empty
+            if (idx < tableRows.length - 1) {
+                if (!tableRows[idx + 1].startTime) {
+                    tableRows[idx + 1].startTime = val;
+                }
+            }
+
+            renderTable();
+            autoSaveData();
+        }
+
+        // Add Row After Current
+        function addRowAfter(idx) {
+            const lastEndTime = tableRows[idx].endTime || "";
+            const newRow = {
+                waqt: "",
+                startTime: lastEndTime,
+                endTime: "",
+                otherMins: "",
+                text: ""
+            };
+            tableRows.splice(idx + 1, 0, newRow);
+            renderTable();
+            autoSaveData();
+        }
+
+        // Delete Single Row
+        function deleteRow(idx) {
+            if (tableRows.length <= 1) {
+                alert("কমপক্ষে একটি সারী থাকা আবশ্যক!");
+                return;
+            }
+            tableRows.splice(idx, 1);
+            renderTable();
+            autoSaveData();
+        }
+
+        // Calculate Duty Minutes from 24h Time Strings (HH:MM)
+        function calculateRowDutyMinutes(startTime, endTime) {
+            if (!startTime || !endTime) return 0;
+
+            const [sH, sM] = startTime.split(':').map(Number);
+            const [eH, eM] = endTime.split(':').map(Number);
+
+            let startTotal = (sH * 60) + sM;
+            let endTotal = (eH * 60) + eM;
+
+            if (endTotal < startTotal) {
+                endTotal += (24 * 60); // Overnight shift crossover
+            }
+
+            return Math.max(0, endTotal - startTotal);
+        }
+
+        // Convert Minutes into Bengali String (Hours & Minutes)
+        function formatMinutesToText(totalMinutes) {
+            if (!totalMinutes || totalMinutes <= 0) return '০ মিনিট';
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+            let res = "";
+            if (h > 0) res += `${toBengaliNum(h)} ঘণ্টা `;
+            if (m > 0) res += `${toBengaliNum(m)} মিনিট`;
+            return res.trim();
+        }
+
+        // Calculate Totals and Progress
+        function calculateAll() {
+            let totalDutyMins = 0;
+            let totalOtherMins = 0;
+
+            tableRows.forEach(row => {
+                totalDutyMins += calculateRowDutyMinutes(row.startTime, row.endTime);
+                const other = parseInt(row.otherMins) || 0;
+                totalOtherMins += other;
+            });
+
+            const dutyText = formatMinutesToText(totalDutyMins);
+            const otherText = formatMinutesToText(totalOtherMins);
+
+            document.getElementById('totalDutyCell').innerText = dutyText;
+            document.getElementById('totalOtherCell').innerText = otherText;
+
+            document.getElementById('dutySummary').innerText = dutyText;
+            document.getElementById('otherSummary').innerText = otherText;
+
+            // 12 Hours Target = 720 minutes
+            const targetMins = 720;
+            const percentage = Math.min(100, Math.round((totalDutyMins / targetMins) * 100));
+            document.getElementById('progressPercentage').innerText = `${toBengaliNum(percentage)}% সম্পন্ন`;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+        }
+
+        // Auto Save Everything to LocalStorage
+        function autoSaveData() {
+            const selectedStatus = document.querySelector('input[name="dutyStatusType"]:checked')?.value || "";
+
+            const reportData = {
+                slipId: currentSlipId,
+                amilName: document.getElementById('amilName').value,
+                profileId: document.getElementById('profileId').value,
+                dutyDate: document.getElementById('dutyDate').value,
+                sectionName: document.getElementById('sectionName').value,
+                dutyStatusType: selectedStatus,
+                rows: tableRows
+            };
+
+            // Active draft in memory
+            localStorage.setItem('sm40_active_duty_draft', JSON.stringify(reportData));
+
+            // Saved by slip ID for search feature
+            let savedReports = JSON.parse(localStorage.getItem('sm40_saved_reports_archive') || '{}');
+            savedReports[currentSlipId] = reportData;
+            localStorage.setItem('sm40_saved_reports_archive', JSON.stringify(savedReports));
+        }
+
+        // Load JSON Data Into Form
+        function loadDataIntoForm(data) {
+            currentSlipId = data.slipId || generateSlipId();
+            document.getElementById('slipIdDisplay').innerText = currentSlipId;
+            document.getElementById('amilName').value = data.amilName || '';
+            document.getElementById('profileId').value = data.profileId || '';
+            document.getElementById('dutyDate').value = data.dutyDate || '';
+            document.getElementById('sectionName').value = data.sectionName || '';
+
+            if (data.dutyStatusType) {
+                const radio = document.querySelector(`input[name="dutyStatusType"][value="${data.dutyStatusType}"]`);
+                if (radio) radio.checked = true;
+            }
+
+            tableRows = data.rows && data.rows.length > 0 ? data.rows : [
+                { waqt: "", startTime: "", endTime: "", otherMins: "", text: "" }
+            ];
+
+            renderTable();
+        }
+
+        // Search Saved Slip
+        function searchReport() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert("অনুগ্রহ করে একটি স্লিপ আইডি বা তারিখ লিখুন!");
+                return;
+            }
+
+            const savedReports = JSON.parse(localStorage.getItem('sm40_saved_reports_archive') || '{}');
+            let found = null;
+
+            if (savedReports[query]) {
+                found = savedReports[query];
+            } else {
+                for (let key in savedReports) {
+                    if (savedReports[key].dutyDate === query) {
+                        found = savedReports[key];
+                        break;
+                    }
+                }
+            }
+
+            if (found) {
+                loadDataIntoForm(found);
+                autoSaveData();
+                alert(`স্লিপ আইডি: ${found.slipId} এর তথ্য লোড করা হয়েছে!`);
+            } else {
+                alert("কোনো সংরক্ষিত রিপোর্ট পাওয়া যায়নি!");
+            }
+        }
+
+        // Download JPG
+        function downloadJPG() {
+            const element = document.getElementById('exportArea');
+            html2canvas(element, { scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Work_Log_${currentSlipId}.jpg`;
+                link.href = canvas.toDataURL('image/jpeg', 0.95);
+                link.click();
+            });
+        }
+
+        // Download Excel
+        function downloadExcel() {
+            const amilName = document.getElementById('amilName').value || 'N/A';
+            const profileId = document.getElementById('profileId').value || 'N/A';
+            const dutyDate = document.getElementById('dutyDate').value || 'N/A';
+            const sectionName = document.getElementById('sectionName').value || 'N/A';
+            const statusType = document.querySelector('input[name="dutyStatusType"]:checked')?.value || 'N/A';
+
+            const data = [
+                ["দৈনিক ঘন্টা ভিত্তিক কাজের বিবরণ - SM40.COM"],
+                ["স্লিপ নম্বর:", currentSlipId],
+                ["আমিল নাম:", amilName, "প্রোফাইল আইডি:", profileId],
+                ["তারিখ:", dutyDate, "সেকশন:", sectionName, "ধরণ:", statusType],
+                [],
+                ["ওয়াক্ত", "সময় শুরু", "সময় শেষ", "ডিউটি সংক্রান্ত সময়", "অন্যান্য সময় (মি.)", "নিয়মিত কাজ / বিবরণ"]
+            ];
+
+            tableRows.forEach(r => {
+                const mins = calculateRowDutyMinutes(r.startTime, r.endTime);
+                data.push([
+                    r.waqt,
+                    r.startTime,
+                    r.endTime,
+                    formatMinutesToText(mins),
+                    r.otherMins || '০',
+                    r.text
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Duty Log");
+            XLSX.writeFile(wb, `Work_Log_${currentSlipId}.xlsx`);
+        }
+
+        // Download PDF / Print
+        function downloadPDF() {
+            if (window.AndroidBridge && window.AndroidBridge.printPage) {
+                window.AndroidBridge.printPage();
+            } else {
+                window.print();
+            }
+        }
+    </script>
+</body>
+</html>
